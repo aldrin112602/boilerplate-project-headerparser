@@ -1,45 +1,64 @@
-// index.js
-// where your node app starts
-
-// init project
 require('dotenv').config();
-var express = require('express');
-var app = express();
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const bodyParser = require('body-parser');
+const validUrl = require('valid-url');
 
-// enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
-// so that your API is remotely testable by FCC
-var cors = require('cors');
-app.use(cors({ optionsSuccessStatus: 200 })); // some legacy browsers choke on 204
 
-// http://expressjs.com/en/starter/static-files.html
-app.use(express.static('public'));
+// Basic Configuration
+const port = process.env.PORT || 3000;
 
-// http://expressjs.com/en/starter/basic-routing.html
-app.get('/', function (req, res) {
-  res.sendFile(__dirname + '/views/index.html');
+app.use(cors());
+
+app.use('/public', express.static(`${process.cwd()}/public`));
+
+app.get('/', function(req, res) {
+  res.sendFile(process.cwd() + '/views/index.html');
 });
 
 
-app.enable('trust proxy'); // To get the real IP address when behind a proxy
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
-app.get('/api/whoami', (req, res) => {
-  const ipaddress = req.ip; // Get the requester's IP address
-  const language = req.headers['accept-language']; // Get the preferred language from request headers
-  const software = req.headers['user-agent']; // Get the user-agent (software) from request headers
+// Map to store original URLs and their corresponding short URLs
+const urlMap = new Map();
+let nextShortUrlId = 1;
 
-  res.json({
-    ipaddress,
-    language,
-    software
-  });
+// Endpoint for shortening URLs
+app.post('/api/shorturl', (req, res) => {
+  const originalUrl = req.body.url;
+
+  // Check if the URL is valid
+  if (!validUrl.isWebUri(originalUrl)) {
+    return res.json({ error: 'invalid url' });
+  }
+
+  // Generate short URL
+  const shortUrl = nextShortUrlId++;
+
+  // Store the mapping of original URL to short URL
+  urlMap.set(shortUrl, originalUrl);
+
+  res.json({ original_url: originalUrl, short_url: shortUrl });
 });
 
-// your first API endpoint...
-app.get('/api/hello', function (req, res) {
-  res.json({ greeting: 'hello API' });
+// Endpoint for redirecting to the original URL
+app.get('/api/shorturl/:short_url', (req, res) => {
+  const shortUrl = req.params.short_url;
+  
+  // Retrieve the original URL from the map
+  const originalUrl = urlMap.get(parseInt(shortUrl));
+
+  if (!originalUrl) {
+    return res.status(404).json({ error: 'Short URL not found' });
+  }
+
+  res.redirect(originalUrl);
 });
 
-// listen for requests :)
-var listener = app.listen(process.env.PORT || 3000, function () {
-  console.log('Your app is listening on port ' + listener.address().port);
+
+
+app.listen(port, function() {
+  console.log(`Listening on port ${port}`);
 });
