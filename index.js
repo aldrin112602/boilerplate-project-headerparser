@@ -19,6 +19,21 @@ app.get('/', function (req, res) {
   res.sendFile(__dirname + '/views/index.html');
 });
 
+
+app.enable('trust proxy'); // To get the real IP address when behind a proxy
+
+app.get('/api/whoami', (req, res) => {
+  const ipaddress = req.ip; // Get the requester's IP address
+  const language = req.headers['accept-language']; // Get the preferred language from request headers
+  const software = req.headers['user-agent']; // Get the user-agent (software) from request headers
+
+  res.json({
+    ipaddress,
+    language,
+    software
+  });
+});
+
 // your first API endpoint...
 app.get('/api/hello', function (req, res) {
   res.json({ greeting: 'hello API' });
